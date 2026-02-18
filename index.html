@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>@ptashka228 | guns.lol</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -20,16 +20,29 @@
             font-family: 'Inter', sans-serif;
             background: #000;
             overflow: hidden;
+            -webkit-overflow-scrolling: touch;
         }
 
-        /* Video background */
-        #video-background {
+        /* Video background container */
+        .video-bg-container {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             z-index: 0;
+            background: #000;
+        }
+
+        #video-background {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%);
             object-fit: cover;
         }
 
@@ -191,6 +204,7 @@
             align-items: center;
             gap: 15px;
             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
 
         .status-icon {
@@ -251,6 +265,7 @@
             width: 100%;
             max-width: 500px;
             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
 
         .music-header {
@@ -327,6 +342,7 @@
             justify-content: center;
             cursor: pointer;
             transition: all 0.2s ease;
+            flex-shrink: 0;
         }
 
         .music-btn:hover {
@@ -361,12 +377,13 @@
             background: #fff;
             border-radius: 2px;
             width: 70%;
-            transition: width 0.2s ease;
+            transition: width 0.1s ease;
         }
 
         .volume-icon {
             color: #888;
             font-size: 18px;
+            flex-shrink: 0;
         }
 
         /* Projects/Badges section */
@@ -400,6 +417,7 @@
             gap: 10px;
             transition: all 0.2s ease;
             backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
         }
 
         .badge:hover {
@@ -461,6 +479,7 @@
             transition: all 0.2s ease;
             cursor: pointer;
             backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
             text-decoration: none;
         }
 
@@ -532,13 +551,32 @@
             font-size: 11px;
             letter-spacing: 0.5px;
         }
+
+        /* Playing indicator */
+        .playing-indicator {
+            color: #00ff88 !important;
+            animation: pulse-glow 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
+    <!-- Audio element -->
+    <audio id="bgMusic" loop preload="auto">
+        <source src="https://ivan-valeev-mp3xa-cc.skysound7.com/" type="audio/mpeg">
+        <source src="https://ivan-valeev-mp3xa-cc.skysound7.com/" type="audio/mp3">
+    </audio>
+
     <!-- Video background -->
-    <video id="video-background" autoplay muted loop playsinline>
-        <source src="https://play.vsthemes.org/fhd/29/5329.webm" type="video/webm">
-    </video>
+    <div class="video-bg-container">
+        <video id="video-background" autoplay muted loop playsinline webkit-playsinline poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1920' height='1080'%3E%3Crect fill='%23000000' width='1920' height='1080'/%3E%3C/svg%3E">
+            <source src="https://play.vsthemes.org/fhd/29/5329.webm" type="video/webm">
+        </video>
+    </div>
 
     <!-- Dark overlay -->
     <div class="video-overlay"></div>
@@ -590,7 +628,7 @@
             </div>
             <div class="track-info">
                 <div class="track-cover">
-                    <i class="material-icons">music_note</i>
+                    <i class="material-icons" id="musicNoteIcon">music_note</i>
                 </div>
                 <div class="track-details">
                     <div class="track-name">NOVELLA</div>
@@ -598,12 +636,12 @@
                 </div>
             </div>
             <div class="music-controls">
-                <button class="music-btn" onclick="togglePlay()">
+                <button class="music-btn" onclick="togglePlay()" id="playButton">
                     <i class="material-icons" id="playIcon">play_arrow</i>
                 </button>
                 <div class="volume-control">
                     <i class="material-icons volume-icon">volume_up</i>
-                    <div class="volume-slider" onclick="setVolume(event)">
+                    <div class="volume-slider" onclick="setVolume(event)" id="volumeSlider">
                         <div class="volume-fill" id="volumeFill"></div>
                     </div>
                 </div>
@@ -696,10 +734,20 @@
     </div>
 
     <script>
+        // Audio player
+        const audio = document.getElementById('bgMusic');
+        const playIcon = document.getElementById('playIcon');
+        const musicNoteIcon = document.getElementById('musicNoteIcon');
+        let volume = 0.7;
+
         // Click to enter function
         function enterProfile() {
             document.querySelector('.enter-screen').classList.add('hidden');
             document.body.style.overflow = 'auto';
+            
+            // Try to play video on mobile
+            const video = document.getElementById('video-background');
+            video.play().catch(e => console.log('Video autoplay prevented:', e));
         }
 
         // Update time and date for Yekaterinburg timezone (UTC+5)
@@ -732,32 +780,48 @@
         setInterval(updateDateTime, 1000);
         updateDateTime();
 
-        // Music player
-        let isPlaying = false;
-        let volume = 70;
-
+        // Music player functions
         function togglePlay() {
-            isPlaying = !isPlaying;
-            const icon = document.getElementById('playIcon');
-            icon.textContent = isPlaying ? 'pause' : 'play_arrow';
-            
-            // In a real implementation, this would control actual audio
-            console.log(isPlaying ? 'Playing: IVAN VALEEV - NOVELLA' : 'Paused');
+            if (audio.paused) {
+                audio.play().then(() => {
+                    playIcon.textContent = 'pause';
+                    musicNoteIcon.classList.add('playing-indicator');
+                    console.log('Playing: IVAN VALEEV - NOVELLA');
+                }).catch(e => {
+                    console.error('Audio play failed:', e);
+                    alert('Нажмите ещё раз для воспроизведения музыки');
+                });
+            } else {
+                audio.pause();
+                playIcon.textContent = 'play_arrow';
+                musicNoteIcon.classList.remove('playing-indicator');
+                console.log('Paused');
+            }
         }
 
         function setVolume(event) {
             const slider = event.currentTarget;
             const rect = slider.getBoundingClientRect();
             const x = event.clientX - rect.left;
-            volume = Math.round((x / rect.width) * 100);
-            document.getElementById('volumeFill').style.width = volume + '%';
+            volume = Math.round((x / rect.width) * 100) / 100;
             
-            // In a real implementation, this would set actual audio volume
-            console.log('Volume set to:', volume + '%');
+            audio.volume = volume;
+            document.getElementById('volumeFill').style.width = (volume * 100) + '%';
+            
+            console.log('Volume set to:', Math.round(volume * 100) + '%');
         }
 
-        // Initialize
-        document.getElementById('volumeFill').style.width = volume + '%';
+        // Initialize volume
+        audio.volume = volume;
+        document.getElementById('volumeFill').style.width = (volume * 100) + '%';
+
+        // Handle audio events
+        audio.addEventListener('loadstart', () => console.log('Audio loading...'));
+        audio.addEventListener('canplay', () => console.log('Audio ready to play'));
+        audio.addEventListener('error', (e) => {
+            console.error('Audio error:', e);
+            console.log('Audio source:', audio.src);
+        });
 
         // Simulate profile views counter
         let views = 2847;
@@ -767,6 +831,30 @@
                 document.getElementById('viewCount').textContent = views.toLocaleString();
             }
         }, 3000);
+
+        // Force video to play on mobile
+        document.addEventListener('DOMContentLoaded', function() {
+            const video = document.getElementById('video-background');
+            
+            // Attempt to play video
+            const playPromise = video.play();
+            
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.log('Video autoplay was prevented');
+                    // Auto-play was prevented
+                    // Show a UI element to let the user manually start playback
+                });
+            }
+        });
+
+        // Handle touch events for better mobile interaction
+        document.addEventListener('touchstart', function() {
+            const video = document.getElementById('video-background');
+            if (video.paused) {
+                video.play().catch(e => console.log('Video play on touch failed'));
+            }
+        }, { once: true });
     </script>
 </body>
 </html>
